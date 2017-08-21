@@ -1,65 +1,71 @@
 grammar Bible;
 
-@parser::header {
+@lexer::header {
 //    import "strconv"
 }
 
+@parser::header {
+}
+
+
+@lexer::members {
+	var n int
+//	func abc (i int) {}
+}
+
+@parser::members {
+func isOk (a int) bool {
+	fmt.Println ("first ->", a, ".")
+	return true
+}
+}
 
 // --------------------------------------------------------------------------------------------------------------------
 // Правила
 // --------------------------------------------------------------------------------------------------------------------
-
 r: ( reference | text)*;
 
-reference: (reference3 | reference1 | reference2 | barereference);
-continuation: terminator (chapter ':' spanlist | spanlist ) ;
+reference: (reference1 | reference2 | reference3);
+//continuation: terminator (chapter ':' spanlist | spanlist ) ;
 
-reference1: book1 whitespace chapter (':' spanlist )? ;
-reference2: book2 whitespace spanlist;
-reference3: book1 whitespace chapterverse MINUS chapterverse ;
+reference1: book2 whitespace parts;
+reference2: book2 whitespace chapter (':' spanlist )? ;
+reference3: book1 whitespace spanlist;
 
-barereference: barereference2 | barereference1 ;
-barereference1: chapter ':' spanlist ;
-barereference2: chapterverse MINUS chapterverse;
+parts: part (terminator part)*;
+part: barereference1 | barereference2 | barereference3;
+barereference1: chapterverse MINUS chapterverse;
+barereference2: chapter ':' spanlist ;
+barereference3: chapter;
 
 chapterverse: chapter ':' verse ;
-terminator: WS* (';' | '.') WS*;
-
-spanlist: (versespan | verse) (',' WS* (versespan | verse))*;
+terminator: WS* (';' | '.' | 'и') WS*;
+verselist: versespan | verse;
+spanlist: verselist (',' WS* verselist)*;
 
 versespan:
-	NUMBER
-		{
-			firstVerse, _ := strconv.Atoi(localctx.GetText())
-		}
+	A = verse
 
 	MINUS
 		{
-			length := len (localctx.GetText())
+//			length := len (localctx.GetText())
 		}
 
-	NUMBER
-		{
-			secondVerse, _ := strconv.Atoi(localctx.GetText()[length:])
-			if secondVerse <= firstVerse {
-				panic(antlr.NewBaseRecognitionException("Invalid verse span", p, p.GetInputStream(), localctx))
-			}
-		}
+	verse
 	 ;
+
 chapter: NUMBER;
 verse: NUMBER;
 whitespace: WS*;
-text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',')+?;
+text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',' | 'и')+?;
 
-book1: (OLDTESTAMENT | NEWTESTAMENT) DOT?;
-book2: SINGLECHAPTERBOOK DOT?;
+book2: (OLDTESTAMENT | NEWTESTAMENT) DOT?;
+book1: SINGLECHAPTERBOOK DOT?;
 
 
 // --------------------------------------------------------------------------------------------------------------------
 // Лексемы
 // --------------------------------------------------------------------------------------------------------------------
-MINUS: '-' | '—' | '–';
-
 OLDTESTAMENT: MOSES | HISTORY | TEACHINGS | BIGPROPHETS | SMALLPROPHETS1 | SMALLPROPHETS2;
 NEWTESTAMENT: EVANGELY | JOHN | CASUAL | CORYNTH;
 
@@ -78,5 +84,6 @@ SINGLECHAPTERBOOK: 'Иуды' | 'Иуд' | 'Авд' ;
 
 DOT: '.';
 NUMBER: ('0'..'9')+;
+MINUS: [\p{Pd}];
 WS: [\p{Z}];
 ANY: .;

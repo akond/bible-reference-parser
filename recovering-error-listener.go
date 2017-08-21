@@ -2,6 +2,8 @@ package parser
 
 import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"reflect"
+	"fmt"
 )
 
 type RecoveringErrorListener struct {
@@ -10,11 +12,14 @@ type RecoveringErrorListener struct {
 }
 
 func (d *RecoveringErrorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	//fmt.Println(">> 1>> ", reflect.TypeOf(e).String())
+	fmt.Println(">> 1>> ", reflect.TypeOf(e).String())
 	if e != nil {
 		switch e.(type) {
 		case *antlr.InputMisMatchException, *antlr.BaseRecognitionException:
 			d.InErrorMode = 1
+
+		case *antlr.FailedPredicateException:
+			panic(e)
 		}
 	}
 }
@@ -25,7 +30,7 @@ func NewRecoveringErrorListener() *RecoveringErrorListener {
 }
 
 func (d *RecoveringErrorListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	//fmt.Println("ReportAmbiguity")
+	//fmt.Println("ReportAmbiguity", startIndex, stopIndex, recognizer.GetCurrentToken().GetText())
 }
 
 func (d *RecoveringErrorListener) ReportAttemptingFullContext(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, conflictingAlts *antlr.BitSet, configs antlr.ATNConfigSet) {

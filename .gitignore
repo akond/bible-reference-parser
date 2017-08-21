@@ -1,0 +1,7 @@
+.idea
+Bible.tokens
+bible_base_listener.go
+bible_lexer.go
+bible_listener.go
+bible_parser.go
+BibleLexer.tokens
