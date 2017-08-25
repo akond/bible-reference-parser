@@ -35,6 +35,18 @@ func walkerSubstituteWithStar(this *TreeShapeListener, ctx antlr.ParserRuleConte
 	//}
 }
 
+
+func walkerSubstituteWithReference (this *TreeShapeListener, ctx antlr.ParserRuleContext) {
+	switch ctx.GetRuleIndex() {
+	case BibleParserRULE_reference:
+
+		this.collector += "~"
+
+	case BibleParserRULE_text:
+		this.collector += ctx.GetText()
+	}
+}
+
 func TestParsing(t *testing.T) {
 	var references = map[string]string{
 		"Ин. 5:1":                                                                             "*",
@@ -72,7 +84,7 @@ func TestParsing(t *testing.T) {
 	}
 
 	for input, expecting := range references {
-		text := ParseBibleText(input, walkerSubstituteWithStar, false)
+		text := SubstituteBibleRefWithStar(input)
 
 		if text != expecting {
 			t.Fatalf("%q is not recognized as a reference.\nGot\n\t%q\ninstead of\n\t%q", input, text, expecting)
@@ -81,12 +93,14 @@ func TestParsing(t *testing.T) {
 }
 
 func TestTexts(t *testing.T) {
-	var texts = []string{}
+	var texts = map[string]string{
+		//"1 Цар.23:6-1":                                                                         "!!!",
+	}
 
-	for _, s := range texts {
-		text := ParseBibleText(s, walkerSubstituteWithStar, false)
-		if text != s {
-			t.Fatalf("%q is recognized as a reference. Got\n%q", s, text)
+	for text, expecting  := range texts {
+		got := SubstituteBibleRefWithXml(text)
+		if expecting != got {
+			t.Fatalf("%q is recognized as a reference. Got\n%q", text, got)
 		}
 	}
 }

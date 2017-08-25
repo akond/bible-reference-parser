@@ -5,22 +5,29 @@ import (
 )
 
 
-func ParseBibleText(text string, walker Walker, disableErrors bool) string {
+
+func createTokenStream(text string) *antlr.CommonTokenStream {
 	input := antlr.NewInputStream(text)
 	lexer := NewBibleLexer(input)
-	//lexer.RemoveErrorListeners()
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	bibleParser := NewBibleParser(stream)
-	if disableErrors {
-		//bibleParser.RemoveErrorListeners()
-	}
+	return stream
+}
 
-	//errorListener := NewRecoveringErrorListener()
-	//bibleParser.AddErrorListener(errorListener)
-	//bibleParser.BuildParseTrees = true
-	tree := bibleParser.R()
-	listener := NewTreeShapeListener(walker, nil)
-	//listener := NewFixerListener(bibleParser)
-	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
+func createBibleParser(text string) *BibleParser {
+	stream := createTokenStream(text)
+	bibleParser := NewBibleParser(stream)
+	return bibleParser
+}
+
+func SubstituteBibleRefWithStar(text string) string {
+	listener := NewTreeShapeListener()
+	antlr.ParseTreeWalkerDefault.Walk(listener, createBibleParser(text).R())
+	return listener.collector
+}
+
+
+func SubstituteBibleRefWithXml(text string) string {
+	listener := NewReferenceSubstitutionListener()
+	antlr.ParseTreeWalkerDefault.Walk(listener, createBibleParser(text).R())
 	return listener.collector
 }

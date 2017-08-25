@@ -5,3 +5,5 @@ bible_lexer.go
 bible_listener.go
 bible_parser.go
 BibleLexer.tokens
+bible_base_visitor.go
+bible_visitor.go
