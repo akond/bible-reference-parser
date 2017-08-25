@@ -2,6 +2,7 @@ package parser
 
 import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"fmt"
 )
 
 type Walker func(this *TreeShapeListener, ctx antlr.ParserRuleContext);
@@ -26,6 +27,8 @@ func NewTreeShapeListener(walker Walker, errorListener *RecoveringErrorListener)
 
 func (this *TreeShapeListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	//fmt.Println(this.errorListener.InErrorMode);
+	//fmt.Println(ctx)
+	ctx.EnterRule(this)
 
 	this.walker(this, ctx)
 
@@ -41,6 +44,10 @@ func (this *TreeShapeListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	//	this.collector += ctx.GetText()
 	//	this.errorContext = ctx
 	//}
+}
+
+func (this *TreeShapeListener) EnterVersespan(ctx antlr.ParserRuleContext) {
+	fmt.Println(ctx)
 }
 
 func (this *TreeShapeListener) ExitEveryRule(ctx antlr.ParserRuleContext) {

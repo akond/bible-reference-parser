@@ -4,21 +4,23 @@ import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 )
 
-func ParseBibleText(s string, walker Walker, disableErrors bool) string {
-	input := antlr.NewInputStream(s)
+
+func ParseBibleText(text string, walker Walker, disableErrors bool) string {
+	input := antlr.NewInputStream(text)
 	lexer := NewBibleLexer(input)
 	//lexer.RemoveErrorListeners()
 	stream := antlr.NewCommonTokenStream(lexer, 0)
-	p := NewBibleParser(stream)
+	bibleParser := NewBibleParser(stream)
 	if disableErrors {
-		//p.RemoveErrorListeners()
+		//bibleParser.RemoveErrorListeners()
 	}
 
 	//errorListener := NewRecoveringErrorListener()
-	//p.AddErrorListener(errorListener)
-	//p.BuildParseTrees = true
-	tree := p.R()
+	//bibleParser.AddErrorListener(errorListener)
+	//bibleParser.BuildParseTrees = true
+	tree := bibleParser.R()
 	listener := NewTreeShapeListener(walker, nil)
+	//listener := NewFixerListener(bibleParser)
 	antlr.ParseTreeWalkerDefault.Walk(listener, tree)
 	return listener.collector
 }
