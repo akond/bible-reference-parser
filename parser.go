@@ -4,8 +4,6 @@ import (
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 )
 
-
-
 func createTokenStream(text string) *antlr.CommonTokenStream {
 	input := antlr.NewInputStream(text)
 	lexer := NewBibleLexer(input)
@@ -24,7 +22,6 @@ func SubstituteBibleRefWithStar(text string) string {
 	antlr.ParseTreeWalkerDefault.Walk(listener, createBibleParser(text).R())
 	return listener.collector
 }
-
 
 func SubstituteBibleRefWithXml(text string) string {
 	listener := NewReferenceSubstitutionListener()

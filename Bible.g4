@@ -1,6 +1,5 @@
 grammar Bible;
 
-
 @lexer::header {
     //import "strconv"
 }
@@ -25,15 +24,23 @@ grammar Bible;
     }
 
 	func IsValidVersespan(p *BibleParser) bool {
+		defer func() bool {
+			recover()
+			return false
+		}()
 		first, _ := strconv.Atoi(p.GetCurrentToken().GetText())
 		last, _ := strconv.Atoi(p.Find(BibleParserNUMBER).GetText())
 		return first < last;
 	}
 
 	func IsValidChapterSpan(p *BibleParser) bool {
+		defer func() bool {
+			recover()
+			return false
+		}()
 		first, _ := strconv.Atoi(p.GetCurrentToken().GetText())
 		last, _ := strconv.Atoi(p.Find(BibleParserNUMBER).GetText())
-		return first < last;
+		return first < last
 	}
 }
 
@@ -42,30 +49,27 @@ grammar Bible;
 // --------------------------------------------------------------------------------------------------------------------
 r: ( reference | text)*;
 
-reference: (reference1 | reference2 | reference3);
-
-reference1: manychaptersbook whitespace parts;
-reference2: manychaptersbook whitespace chapter (':' spanlist )? ;
-reference3: singlechapterbook whitespace spanlist;
+reference:
+	manychaptersbook whitespace parts
+	| manychaptersbook whitespace chapter (':' spanlist )?
+	| singlechapterbook whitespace ref5;
 
 parts: part (terminator part)*;
-part: barereference1 | barereference2 | barereference3 | barereference4;
+part: ref1
+	| ref2
+	| ref3
+    | ref4;
 
-barereference1: chapterverse MINUS chapterverse;
+ref1: chapterverse MINUS chapterverse;
+ref2: chapter ':' spanlist;
+ref3: {IsValidChapterSpan(p)}?
+           	chapter MINUS chapter;
+ref4: chapter;
+ref5: spanlist;
 
-barereference2: chapter ':' spanlist ;
-
-barereference3:
-	{IsValidChapterSpan(p)}?
-	chapter MINUS chapter;
-
-barereference4: chapter;
-
-
-chapterverse: chapter ':' verse ;
-terminator: WS* (';' | '.' | 'и') WS*;
-verselist: versespan | verse;
-spanlist: verselist (',' WS* verselist)*;
+chapterverse: chapter ':' singleverse;
+terminator: WS* (';' | '.' | 'и' | ',') WS*;
+spanlist: (versespan | singleverse) (',' WS* (versespan | singleverse))*;
 
 versespan:
 	{IsValidVersespan(p)}?
@@ -73,6 +77,7 @@ versespan:
 
 chapter: NUMBER;
 verse: NUMBER;
+singleverse: NUMBER;
 whitespace: WS*;
 text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',' | 'и')+?;
 
