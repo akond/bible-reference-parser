@@ -1328,6 +1328,14 @@ var NumberOfVerses = map[int]int{
 	1189: 21,
 }
 
-func maxVerseNumber (book, chapter int) int {
-	return NumberOfVerses[NumberOfChaptersCumulative[book] + chapter]
+func maxVerseNumber(book, chapter int) int {
+	if book < 1 {
+		panic("Book parameter must be more than 0")
+	}
+
+	if chapter < 1 {
+		panic("Chapter parameter must be more than 0")
+	}
+
+	return NumberOfVerses[NumberOfChaptersCumulative[book]+chapter]
 }

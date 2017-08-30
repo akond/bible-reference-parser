@@ -15,24 +15,37 @@ func init() {
 }
 
 type Part struct {
-	ChapterStart int
-	VerseStart   int
-	ChapterEnd   int
-	VerseEnd     int
-	Text         string
-}
-
-type IHasChapterValue interface {
-	SetChapterValue(int)
+	Chapter    int
+	Verses     []int
+	VerseStart int
+	VerseEnd   int
+	Text       string
 }
 
 func (p Part) String() string {
 	if p.Text != "" {
 		return p.Text
-	} else if p.ChapterEnd != 0 || p.VerseEnd != 0 {
-		return fmt.Sprintf("{%d:%d %d:%d}", p.ChapterStart, p.VerseStart, p.ChapterEnd, p.VerseEnd)
 	} else {
-		return fmt.Sprintf("{%d:%d}", p.ChapterStart, p.VerseStart)
+		str := ""
+		for _, val := range p.Verses {
+			if 0 < val && 0 < len(str) {
+				str += ","
+			}
+			str += fmt.Sprintf("%d", val)
+		}
+		return fmt.Sprintf("%d:", p.Chapter) + str
+	}
+}
+
+func (this Part) Visit(f func(int)) {
+	for i, verse := range this.Verses {
+		if 0 < verse {
+			f(verse)
+		} else {
+			for continuation := this.Verses[i-1]; continuation <= -verse; continuation++ {
+				f(continuation)
+			}
+		}
 	}
 }
 
@@ -49,19 +62,47 @@ func (this *Reference) String() string {
 	return fmt.Sprintf("{%d %s}", this.Book, this.Parts)
 }
 
-func (this *Reference) AppendPart(c1, v1, c2, v2 int) {
+func (this *Reference) AppendPart(chapter, v1, v2 int) {
+	if len(this.Parts) != 0 {
+		lastPart := this.Parts[len(this.Parts)-1]
+		if lastPart.Chapter == chapter {
+			if lastPart.Verses[len(lastPart.Verses)-1] == v1-1 {
+				lastPart.Verses = append(lastPart.Verses, -v2)
+			} else if lastPart.Verses[len(lastPart.Verses)-1]+v1 == 1 {
+				lastPart.Verses[len(lastPart.Verses)-1] = -v2
+			} else {
+				lastPart.Verses = append(lastPart.Verses, v1, -v2)
+			}
+
+			return
+		}
+	}
 	p := new(Part)
-	p.ChapterStart = c1
+	p.Chapter = chapter
+	p.Verses = append(p.Verses, v1, -v2)
 	p.VerseStart = v1
-	p.ChapterEnd = c2
 	p.VerseEnd = v2
 	this.Parts = append(this.Parts, p)
 }
 
 func (this *Reference) AppendPartSingle(c1, v1 int) {
+	if 0 < len(this.Parts) {
+		lastPart := this.Parts[len(this.Parts)-1]
+		if lastPart.Chapter == c1 {
+			if lastPart.Verses[len(lastPart.Verses)-1] == v1-1 {
+				lastPart.Verses = append(lastPart.Verses, -v1)
+			} else if lastPart.Verses[len(lastPart.Verses)-1]+v1 == 1 {
+				lastPart.Verses[len(lastPart.Verses)-1] = -v1
+			} else {
+				lastPart.Verses = append(lastPart.Verses, v1)
+			}
+			return
+		}
+	}
 	p := new(Part)
-	p.ChapterStart = c1
+	p.Chapter = c1
 	p.VerseStart = v1
+	p.Verses = append(p.Verses, v1)
 	this.Parts = append(this.Parts, p)
 }
 
@@ -141,18 +182,6 @@ var TokenToBook = map[int]int{BibleParserRULE_book1: 1,
 
 type ChildCallback func(ctx antlr.ParserRuleContext);
 
-func loopChildren(f ChildCallback, node antlr.RuleNode) {
-	if f == nil {
-		return
-	}
-
-	for _, child := range node.GetChildren() {
-		if ctx, ok := child.(antlr.ParserRuleContext); ok {
-			f(ctx)
-		}
-	}
-}
-
 type ReferenceNode struct {
 	Type string
 	Val  int
@@ -167,8 +196,9 @@ func NewRefNode(t string, v int) *ReferenceNode {
 
 type ActualVisitor struct {
 	BaseBibleVisitor
-	stack  []*ReferenceNode
-	Result *Reference
+	stack   []*ReferenceNode
+	chapter int
+	Result  *Reference
 }
 
 func (this *ActualVisitor) contextName(ctx interface{}) string {
@@ -189,14 +219,6 @@ func (this *ActualVisitor) VisitChildren(node antlr.RuleNode) {
 
 func (this *ActualVisitor) VisitReference(ctx *ReferenceContext) {
 	this.VisitChildren(ctx)
-
-	//for _, n := range this.stack {
-	//	switch n.Type {
-	//	case "book":
-	//		this.Result.Book = n.Val
-	//	}
-	//}
-
 	this.stack = make([]*ReferenceNode, 0)
 }
 
@@ -206,19 +228,18 @@ func (this *ActualVisitor) VisitManychaptersbook(ctx *ManychaptersbookContext) {
 		if match := parserBookRe.FindStringSubmatch(typeName); match != nil {
 			book, _ := strconv.Atoi(match[1])
 			this.Result.Book = book
-			//this.stack = append(this.stack, NewRefNode("book", book))
 		}
 	}
 	this.VisitChildren(ctx)
 }
 
 func (this *ActualVisitor) VisitSinglechapterbook(ctx *SinglechapterbookContext) {
+	this.chapter = 1
 	for _, n := range ctx.GetChildren() {
 		typeName := reflect.ValueOf(n).Type().String()
 		if match := parserBookRe.FindStringSubmatch(typeName); match != nil {
 			book, _ := strconv.Atoi(match[1])
 			this.Result.Book = book
-			//this.stack = append(this.stack, NewRefNode("book", book))
 			this.stack = append(this.stack, NewRefNode("chapter", 1))
 		}
 	}
@@ -234,8 +255,9 @@ func (this *ActualVisitor) VisitPart(ctx *PartContext) {
 }
 
 func (this *ActualVisitor) VisitChapter(ctx *ChapterContext) {
-	i, _ := strconv.Atoi(ctx.GetText())
-	this.stack = append(this.stack, NewRefNode("chapter", i))
+	chapter, _ := strconv.Atoi(ctx.GetText())
+	this.stack = append(this.stack, NewRefNode("chapter", chapter))
+	this.chapter = chapter
 	this.VisitChildren(ctx)
 }
 
@@ -248,7 +270,10 @@ func (this *ActualVisitor) VisitChapterverse(ctx *ChapterverseContext) {
 }
 
 func (this *ActualVisitor) VisitVerse(ctx *VerseContext) {
-	this.VisitChildren(ctx)
+	verse, _ := strconv.Atoi(ctx.GetText())
+	if maxVerseNumber(this.Result.Book, this.chapter) < verse {
+		panic(ctx.GetParent().GetPayload().(*antlr.BaseParserRuleContext).GetText() + " has invalid verse number")
+	}
 }
 
 /**
@@ -264,12 +289,12 @@ func (this *ActualVisitor) VisitRef1(ctx *Ref1Context) {
 	chapter2 := slice[2].Val
 	verse2 := slice[3].Val
 
-	this.Result.AppendPart(chapter1, verse1, chapter1, maxVerseNumber(this.Result.Book, chapter1))
-	for chapter:= chapter1 + 1; chapter < chapter2; chapter ++ {
-		this.Result.AppendPart(chapter, 1, chapter, maxVerseNumber(this.Result.Book, chapter))
+	this.Result.AppendPart(chapter1, verse1, maxVerseNumber(this.Result.Book, chapter1))
+	for chapter := chapter1 + 1; chapter < chapter2; chapter ++ {
+		this.Result.AppendPart(chapter, 1, maxVerseNumber(this.Result.Book, chapter))
 	}
-	this.Result.AppendPart(chapter2, 1, chapter2, verse2)
-	
+	this.Result.AppendPart(chapter2, 1, verse2)
+
 	this.stack = this.stack[0:len(this.stack)-4]
 }
 
@@ -292,7 +317,7 @@ func (this *ActualVisitor) VisitRef2(ctx *Ref2Context) {
 			n.Type = "void"
 
 		case "verse2":
-			this.Result.AppendPart(chapter, verse, chapter, n.Val)
+			this.Result.AppendPart(chapter, verse, n.Val)
 			n.Type = "void"
 		}
 	}
@@ -305,7 +330,7 @@ func (this *ActualVisitor) VisitRef3(ctx *Ref3Context) {
 
 	slice := this.stack[len(this.stack)-2:]
 	for chapter := slice[0].Val; chapter <= slice[1].Val; chapter++ {
-		this.Result.AppendPart(chapter, 1, chapter, maxVerseNumber(this.Result.Book, chapter))
+		this.Result.AppendPart(chapter, 1, maxVerseNumber(this.Result.Book, chapter))
 	}
 	this.stack = this.stack[0:len(this.stack)-2]
 }
@@ -316,7 +341,7 @@ func (this *ActualVisitor) VisitRef4(ctx *Ref4Context) {
 
 	slice := this.stack[len(this.stack)-1:]
 	chapter := slice[0].Val
-	this.Result.AppendPart(chapter, 1, chapter, maxVerseNumber(this.Result.Book, chapter))
+	this.Result.AppendPart(chapter, 1, maxVerseNumber(this.Result.Book, chapter))
 	this.stack = this.stack[0:len(this.stack)-1]
 }
 
@@ -333,7 +358,7 @@ func (this *ActualVisitor) VisitRef5(ctx *Ref5Context) {
 			verse = n.Val
 
 		case "verse2":
-			this.Result.AppendPart(1, verse, 1, n.Val)
+			this.Result.AppendPart(1, verse, n.Val)
 		}
 	}
 }
@@ -353,26 +378,41 @@ func (this *ActualVisitor) VisitVersespan(ctx *VersespanContext) {
 }
 
 func (this *ActualVisitor) VisitSingleverse(ctx *SingleverseContext) {
-	i, _ := strconv.Atoi(ctx.GetText())
-	this.stack = append(this.stack, NewRefNode("verse", i))
+	verse, _ := strconv.Atoi(ctx.GetText())
+	if maxVerseNumber(this.Result.Book, this.chapter) < verse {
+		panic(ctx.GetParent().GetPayload().(*antlr.BaseParserRuleContext).GetText() + " has invalid verse number")
+	}
+	this.stack = append(this.stack, NewRefNode("verse", verse))
 }
+
+type ReferenceCallback func(*Reference, string) string;
 
 type ReferenceSubstitutionListener struct {
 	*BaseBibleListener
 	collector string
+	cb        ReferenceCallback
+
 	//errorListener *RecoveringErrorListener
 	errorListener *antlr.DefaultErrorListener
 	errorContext  antlr.ParserRuleContext
 }
 
-func NewReferenceSubstitutionListener() *ReferenceSubstitutionListener {
+func NewReferenceSubstitutionListener(f ReferenceCallback) *ReferenceSubstitutionListener {
 	listener := new(ReferenceSubstitutionListener)
 	listener.errorListener = antlr.NewDefaultErrorListener()
 	listener.errorContext = nil
+	listener.cb = f
 	return listener
 }
 
 func (this *ReferenceSubstitutionListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
+	defer func() {
+		msg := recover()
+		if msg != nil {
+			this.collector += ctx.GetText() + " [[ERROR: " + msg.(string) + "]]"
+		}
+	}()
+
 	ctx.EnterRule(this)
 
 	switch ctx.GetRuleIndex() {
@@ -381,11 +421,10 @@ func (this *ReferenceSubstitutionListener) EnterEveryRule(ctx antlr.ParserRuleCo
 		visitor.Result = new(Reference)
 		visitor.VisitReference(ctx.(*ReferenceContext))
 
-		//fmt.Println(visitor.Result)
-		if visitor.Result.IsEmpty() {
+		if visitor.Result == nil || visitor.Result.IsEmpty() {
 			this.collector += ctx.GetText()
 		} else {
-			this.collector += fmt.Sprint(visitor.Result)
+			this.collector += this.cb(visitor.Result, ctx.GetText())
 		}
 
 	case BibleParserRULE_text:
