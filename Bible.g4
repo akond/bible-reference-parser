@@ -79,7 +79,7 @@ chapter: NUMBER;
 verse: NUMBER;
 singleverse: NUMBER;
 whitespace: WS*;
-text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',' | 'и')+?;
+text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',' | 'и');
 
 singlechapterbook: (book31 | book51) DOT?;
 manychaptersbook: (book1 |  book2 |  book3 |  book4 |  book5 |  book6 |  book7 |  book8 |

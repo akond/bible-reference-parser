@@ -6,6 +6,16 @@ import (
 	"crypto/sha1"
 )
 
+type Tags []interface{}
+
+func (this Tags ) String() string  {
+	str := ""
+	for _, tag := range this {
+		str += fmt.Sprintf("%s", tag)
+	}
+	return str
+}
+
 func createTokenStream(text string) *antlr.CommonTokenStream {
 	input := antlr.NewInputStream(text)
 	lexer := NewBibleLexer(input)
@@ -16,6 +26,8 @@ func createTokenStream(text string) *antlr.CommonTokenStream {
 func createBibleParser(text string) *BibleParser {
 	stream := createTokenStream(text)
 	bibleParser := NewBibleParser(stream)
+	bibleParser.RemoveErrorListeners()
+
 	return bibleParser
 }
 
@@ -25,7 +37,7 @@ func SubstituteBibleRefWithStar(text string) string {
 	return listener.collector
 }
 
-func SubstituteBibleRefWithXml(text string, f ReferenceCallback) string {
+func SubstituteBibleRefWithXml(text string, f ReferenceCallback) Tags {
 	listener := NewReferenceSubstitutionListener(f)
 	antlr.ParseTreeWalkerDefault.Walk(listener, createBibleParser(text).R())
 	return listener.collector
@@ -35,11 +47,21 @@ func biemHash(biem string) string {
 	return "bt-" + fmt.Sprintf("%x\n", sha1.Sum([]byte(biem)))[:7]
 }
 
-func InjectBibleReferences(s string) string {
-	return SubstituteBibleRefWithXml(s, func(result *Reference, s string) string {
+type Ulink struct {
+	XMLName struct{} `xml:"ulink"`
+	Url string `xml:"url,attr"`
+	Id string `xml:"bibletext:id,attr"`
+	Data string `xml:",chardata"`
+}
+
+func (this *Ulink) String() string  {
+	return fmt.Sprintf(`<ulink url="%s" bibletext:id="%s">%s</ulink>`, this.Url, this.Id, this.Data)
+}
+
+func InjectBibleReferences(s string) Tags {
+	return SubstituteBibleRefWithXml(s, func(result *Reference, s string) *Ulink {
 		biem := referenceToBiem(*result)
-		hash := biemHash(biem)
-		return fmt.Sprintf(`<ulink url="biem://%v" bibletext:id="%s">`, biem, hash) + s + "</ulink>"
+		return &Ulink{Url:"biem://"+ biem, Id:biemHash(biem), Data:s}
 	})
 }
 

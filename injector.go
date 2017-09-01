@@ -11,9 +11,12 @@ var (
 )
 
 type BibleInjector struct {
-	in, out   chan string
-	collector string
+	in                  chan string
+	out                 chan Tags
+	collector           string
+	collectorCheckpoint map[string]struct{}
 }
+
 
 func NewBibleInjector(dbLocation string) *BibleInjector {
 	db, err := bolt.Open(dbLocation, 0644, nil)
@@ -21,18 +24,18 @@ func NewBibleInjector(dbLocation string) *BibleInjector {
 
 	bibleInjector := new(BibleInjector)
 	bibleInjector.in = make(chan string)
-	bibleInjector.out = make(chan string)
+	bibleInjector.out = make(chan Tags)
+	bibleInjector.collectorCheckpoint = make(map[string]struct{}, 0)
 
 	go func() {
 		db.View(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket(bibleBucket)
 			for text := range bibleInjector.in {
-				bibleInjector.out <- SubstituteBibleRefWithXml(text, func(ref *Reference, s string) string {
+				bibleInjector.out <- SubstituteBibleRefWithXml(text, func(ref *Reference, s string) *Ulink {
 					biem := referenceToBiem(*ref)
 					hash := biemHash(biem)
 					bibleInjector.collectText(bucket, ref, hash)
-
-					return fmt.Sprintf(`<ulink url="biem://%v" bibletext:id="%s">`, biem, hash) + s + "</ulink>"
+					return &Ulink{Url: "biem://" + biem, Id: hash, Data: s}
 				})
 			}
 			return nil
@@ -61,11 +64,20 @@ func formatPart(part Part, text []string) string {
 	return fmt.Sprintf(`<strong>Глава %d</strong> <dl>%s</dl>`, part.Chapter, verses) + "\n"
 }
 
+
+type BibleTextCollectorFunc func (this *BibleInjector) (bucket *bolt.Bucket, ref *Reference, hash string);
+
 func (this *BibleInjector) collectText(bucket *bolt.Bucket, ref *Reference, hash string) {
+	_, ok:=this.collectorCheckpoint[hash]
+	if ok {
+		return
+	}
+
 	var texts []string
 	var text string
 
 	for _, part := range ref.Parts {
+		texts = make([]string,0)
 		part.Visit(func(verse int) {
 			texts = append(texts, string(bucket.Get(verseKey(ref.Book, part.Chapter, verse))))
 		})
@@ -73,13 +85,14 @@ func (this *BibleInjector) collectText(bucket *bolt.Bucket, ref *Reference, hash
 	}
 
 	this.collector += formatText(text, hash)
+	this.collectorCheckpoint[hash] = struct{}{}
 }
 
 func verseKey(book, chapter, verse int) []byte {
 	return []byte(fmt.Sprintf("%d-%d-%d", book, chapter, verse))
 }
 
-func (this BibleInjector) Inject(s string) string {
+func (this BibleInjector) Inject(s string) Tags {
 	this.in <- s
 	return <-this.out
 }

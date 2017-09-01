@@ -42,7 +42,7 @@ func (this Part) Visit(f func(int)) {
 		if 0 < verse {
 			f(verse)
 		} else {
-			for continuation := this.Verses[i-1]; continuation <= -verse; continuation++ {
+			for continuation := this.Verses[i-1] + 1; continuation <= -verse; continuation++ {
 				f(continuation)
 			}
 		}
@@ -385,22 +385,16 @@ func (this *ActualVisitor) VisitSingleverse(ctx *SingleverseContext) {
 	this.stack = append(this.stack, NewRefNode("verse", verse))
 }
 
-type ReferenceCallback func(*Reference, string) string;
+type ReferenceCallback func(*Reference, string) *Ulink;
 
 type ReferenceSubstitutionListener struct {
 	*BaseBibleListener
-	collector string
+	collector Tags
 	cb        ReferenceCallback
-
-	//errorListener *RecoveringErrorListener
-	errorListener *antlr.DefaultErrorListener
-	errorContext  antlr.ParserRuleContext
 }
 
 func NewReferenceSubstitutionListener(f ReferenceCallback) *ReferenceSubstitutionListener {
 	listener := new(ReferenceSubstitutionListener)
-	listener.errorListener = antlr.NewDefaultErrorListener()
-	listener.errorContext = nil
 	listener.cb = f
 	return listener
 }
@@ -409,7 +403,7 @@ func (this *ReferenceSubstitutionListener) EnterEveryRule(ctx antlr.ParserRuleCo
 	defer func() {
 		msg := recover()
 		if msg != nil {
-			this.collector += ctx.GetText() + " [[ERROR: " + msg.(string) + "]]"
+			this.collector = append(this.collector, ctx.GetText()+" [[ERROR: "+msg.(string)+"]]")
 		}
 	}()
 
@@ -422,13 +416,13 @@ func (this *ReferenceSubstitutionListener) EnterEveryRule(ctx antlr.ParserRuleCo
 		visitor.VisitReference(ctx.(*ReferenceContext))
 
 		if visitor.Result == nil || visitor.Result.IsEmpty() {
-			this.collector += ctx.GetText()
+			this.collector = append(this.collector, ctx.GetText())
 		} else {
-			this.collector += this.cb(visitor.Result, ctx.GetText())
+			this.collector = append(this.collector, this.cb(visitor.Result, ctx.GetText()))
 		}
 
 	case BibleParserRULE_text:
-		this.collector += ctx.GetText()
+		this.collector = append(this.collector, ctx.GetText())
 	}
 }
 
