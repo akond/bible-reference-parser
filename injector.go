@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/boltdb/bolt"
 	"log"
+	"strings"
 )
 
 var (
@@ -16,7 +17,6 @@ type BibleInjector struct {
 	collector           string
 	collectorCheckpoint map[string]struct{}
 }
-
 
 func NewBibleInjector(dbLocation string) *BibleInjector {
 	db, err := bolt.Open(dbLocation, 0644, nil)
@@ -50,6 +50,13 @@ func formatText(text, hash string) string {
 	return fmt.Sprintf(`<bibletext:text id="%s">%s</bibletext:text>`, hash, text) + "\n"
 }
 
+func cleanText(string string) string {
+	result := string
+	result = strings.Replace(result, "<", "[", -1)
+	result = strings.Replace(result, ">", "]", -1)
+	return result
+}
+
 func formatPart(part Part, text []string) string {
 	if part.Text != "" {
 		return ""
@@ -58,17 +65,16 @@ func formatPart(part Part, text []string) string {
 	verses := ""
 	i := 0
 	part.Visit(func(verse int) {
-		verses += fmt.Sprintf(`<dt>%d</dt><dd>%s</dd>`, verse, text[i]) + "\n"
+		verses += fmt.Sprintf(`<dt>%d</dt><dd>%s</dd>`, verse, cleanText(text[i])) + "\n"
 		i++
 	})
 	return fmt.Sprintf(`<strong>Глава %d</strong> <dl>%s</dl>`, part.Chapter, verses) + "\n"
 }
 
-
-type BibleTextCollectorFunc func (this *BibleInjector) (bucket *bolt.Bucket, ref *Reference, hash string);
+type BibleTextCollectorFunc func(this *BibleInjector) (bucket *bolt.Bucket, ref *Reference, hash string);
 
 func (this *BibleInjector) collectText(bucket *bolt.Bucket, ref *Reference, hash string) {
-	_, ok:=this.collectorCheckpoint[hash]
+	_, ok := this.collectorCheckpoint[hash]
 	if ok {
 		return
 	}
@@ -77,7 +83,7 @@ func (this *BibleInjector) collectText(bucket *bolt.Bucket, ref *Reference, hash
 	var text string
 
 	for _, part := range ref.Parts {
-		texts = make([]string,0)
+		texts = make([]string, 0)
 		part.Visit(func(verse int) {
 			texts = append(texts, string(bucket.Get(verseKey(ref.Book, part.Chapter, verse))))
 		})

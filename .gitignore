@@ -7,3 +7,7 @@ bible_parser.go
 BibleLexer.tokens
 bible_base_visitor.go
 bible_visitor.go
+*.interp
+*.lock
+*.boltdb
+*.prof

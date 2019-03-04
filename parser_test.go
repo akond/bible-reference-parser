@@ -2,7 +2,6 @@ package parser
 
 import (
 	"testing"
-	"fmt"
 	"regexp"
 )
 
@@ -121,7 +120,7 @@ func TestHashFunction(t *testing.T) {
 }
 
 func TestSomeThing(t *testing.T) {
-	injector := NewBibleInjector("bible.boltdb")
-	fmt.Println(injector.Inject("Быт. 39:6—12,18;40:1. Ин.3:16\n\n"))
-	fmt.Println(injector.Text())
+	//injector := NewBibleInjector("bible.boltdb")
+	//fmt.Println(injector.Inject("Быт. 39:6—12,18;40:1. Ин.3:16\n\n"))
+	//fmt.Println(injector.Text())
 }

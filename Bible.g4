@@ -81,7 +81,7 @@ singleverse: NUMBER;
 whitespace: WS*;
 text: (ANY | MINUS | NUMBER | WS | DOT | ';' | ':' | ',' | 'и');
 
-singlechapterbook: (book31 | book51) DOT?;
+singlechapterbook: (book31 | book51 | book64) DOT?;
 manychaptersbook: (book1 |  book2 |  book3 |  book4 |  book5 |  book6 |  book7 |  book8 |
                    book9 |  book10 |  book11 |  book12 |  book13 |  book14 |  book15 |
                    book16 |  book17 |  book18 |  book19 |  book20 |  book21 |  book22 |
@@ -90,7 +90,7 @@ manychaptersbook: (book1 |  book2 |  book3 |  book4 |  book5 |  book6 |  book7 |
                    book37 |  book38 |  book39 |  book40 |  book41 |  book42 |  book43 |
                    book44 |  book45 |  book46 |  book47 |  book48 |  book49 |  book50 |
                    book52 |  book53 |  book54 |  book55 |  book56 |  book57 |
-                   book58 |  book59 |  book60 |  book61 |  book62 |  book63 |  book64 |
+                   book58 |  book59 |  book60 |  book61 |  book62 |  book63 |  
                    book65 |  book66) DOT?;
 
 book1: BOOK1;
@@ -184,7 +184,7 @@ BOOK18: 'Иова' | 'Иов' ;
 BOOK19: 'Псал' | 'Пс';
 BOOK20: 'Притчи' | 'Притч' | 'Прит';
 BOOK21: 'Еккл' | 'Екк';
-BOOK22: 'Песн';
+BOOK22: 'Пес' DOT? WS* 'П' DOT | 'Песн';
 BOOK23: 'Исаии' | 'Ис';
 BOOK24: 'Иеремии' | 'Иерем' | 'Иер';
 BOOK25: ('Пл' | 'Плач') DOT? WS* ('Иеремии' | 'Иерем' | 'Иер');
